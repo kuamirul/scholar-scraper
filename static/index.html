@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scholar Citation Scraper</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f5f7fa;
+      color: #1a1a2e;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 16px 64px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      padding: 36px 40px;
+      width: 100%;
+      max-width: 760px;
+    }
+
+    h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 4px; }
+    .subtitle { font-size: 0.875rem; color: #6b7280; margin-bottom: 28px; }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 0; margin-bottom: 28px; border-bottom: 2px solid #e5e7eb; }
+    .tab {
+      padding: 10px 20px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #6b7280;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab:hover { color: #4f46e5; }
+    .tab.active { color: #4f46e5; border-bottom-color: #4f46e5; }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    label { display: block; font-size: 0.875rem; font-weight: 600; margin-bottom: 6px; color: #374151; }
+    .hint { font-size: 0.8rem; color: #9ca3af; margin-top: 4px; }
+
+    .input-row { display: flex; gap: 10px; }
+
+    input[type="text"] {
+      flex: 1;
+      padding: 10px 14px;
+      border: 1.5px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 0.9375rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input[type="text"]:focus { border-color: #4f46e5; }
+
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9375rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, opacity 0.15s;
+    }
+    .btn-primary { background: #4f46e5; color: #fff; white-space: nowrap; }
+    .btn-primary:hover { background: #4338ca; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-outline {
+      background: #fff; color: #4f46e5;
+      border: 1.5px solid #4f46e5;
+      font-size: 0.8125rem; padding: 7px 14px;
+    }
+    .btn-outline:hover { background: #eef2ff; }
+
+    /* Status */
+    .status-area { margin-top: 24px; }
+    .status-msg {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 0.9rem; color: #6b7280; padding: 14px 0;
+    }
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2.5px solid #e5e7eb; border-top-color: #4f46e5;
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite; flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .error-box {
+      background: #fef2f2; border: 1px solid #fecaca;
+      border-radius: 8px; padding: 14px 16px;
+      color: #b91c1c; font-size: 0.875rem; line-height: 1.6;
+    }
+
+    /* Progress bar */
+    .progress-wrap { margin-top: 16px; }
+    .progress-label { font-size: 0.8125rem; color: #6b7280; margin-bottom: 6px; }
+    .progress-bar-bg {
+      background: #e5e7eb; border-radius: 99px; height: 8px; overflow: hidden;
+    }
+    .progress-bar-fill {
+      background: #4f46e5; height: 100%; border-radius: 99px;
+      transition: width 0.4s ease; width: 0%;
+    }
+
+    /* Results */
+    .results { margin-top: 28px; }
+    .author-name { font-size: 1.1rem; font-weight: 700; margin-bottom: 2px; }
+    .author-aff { font-size: 0.85rem; color: #6b7280; margin-bottom: 20px; }
+    .section-title {
+      font-size: 0.8125rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      color: #9ca3af; margin-bottom: 10px;
+    }
+
+    .table-wrap { overflow-x: auto; margin-bottom: 24px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    thead th {
+      text-align: left; padding: 9px 12px;
+      background: #f9fafb; border-bottom: 1.5px solid #e5e7eb;
+      font-weight: 600; color: #374151; white-space: nowrap;
+    }
+    tbody td {
+      padding: 9px 12px; border-bottom: 1px solid #f3f4f6;
+      color: #1a1a2e;
+    }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: #fafafa; }
+
+    .download-row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .divider { border: none; border-top: 1px solid #f3f4f6; margin: 20px 0; }
+
+    .badge-error {
+      display: inline-block; font-size: 0.75rem;
+      background: #fef2f2; color: #b91c1c;
+      border-radius: 4px; padding: 1px 6px;
+    }
+
+    a { text-decoration: none; }
+    .link { color: #4f46e5; font-size: 0.8125rem; }
+    .link:hover { text-decoration: underline; }
+
+    /* Upload area */
+    .upload-area {
+      border: 2px dashed #d1d5db; border-radius: 8px;
+      padding: 28px 20px; text-align: center; cursor: pointer;
+      color: #9ca3af; font-size: 0.875rem;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .upload-area:hover { border-color: #4f46e5; background: #f5f3ff; }
+    .upload-area.has-file { border-color: #4f46e5; background: #eef2ff; color: #4338ca; font-weight: 600; }
+    .upload-icon { font-size: 1.75rem; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h1>Scholar Citation Scraper</h1>
+  <p class="subtitle">Fetch citation metrics from Google Scholar and export to CSV.</p>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" data-tab="author" onclick="switchTab('author')">Single Author</div>
+    <div class="tab" data-tab="org" onclick="switchTab('org')">Institution</div>
+    <div class="tab" data-tab="batch" onclick="switchTab('batch')">Batch / CSV</div>
+  </div>
+
+  <!-- ── Single Author panel ──────────────────────────────────────────── -->
+  <div class="panel active" id="panel-author">
+    <label for="user-input">Scholar User ID or Profile URL</label>
+    <div class="input-row">
+      <input type="text" id="user-input"
+        placeholder="e.g. YA43PbsAAAAJ or full profile URL"
+        autocomplete="off" spellcheck="false" />
+      <button class="btn-primary" id="author-btn" onclick="startAuthorScrape()">Fetch</button>
+    </div>
+
+    <div class="status-area" id="author-status"></div>
+    <div id="author-results"></div>
+  </div>
+
+  <!-- ── Institution panel ────────────────────────────────────────────── -->
+  <div class="panel" id="panel-org">
+    <label for="org-input">Institution Org ID or URL</label>
+    <div class="input-row">
+      <input type="text" id="org-input"
+        placeholder="e.g. 8426414521267289432 or full org URL"
+        autocomplete="off" spellcheck="false" />
+      <button class="btn-primary" id="org-btn" onclick="startOrgScrape()">Fetch</button>
+    </div>
+    <p class="hint">
+      Find the org URL on Google Scholar: search your institution → click its name →
+      copy the URL (contains <code>view_op=view_org&amp;org=…</code>).
+    </p>
+
+    <div class="status-area" id="org-status"></div>
+    <div id="org-results"></div>
+  </div>
+
+  <!-- ── Batch / CSV panel ─────────────────────────────────────────────── -->
+  <div class="panel" id="panel-batch">
+    <label>Upload CSV of Profile URLs</label>
+    <div class="upload-area" id="batch-drop"
+         onclick="document.getElementById('batch-file').click()"
+         ondragover="event.preventDefault();this.classList.add('has-file')"
+         ondragleave="this.classList.remove('has-file')"
+         ondrop="onBatchDrop(event)">
+      <input type="file" id="batch-file" accept=".csv" style="display:none"
+             onchange="onBatchFileSelect(this)" />
+      <div class="upload-icon">📄</div>
+      <div id="batch-file-label">Click to choose or drag &amp; drop a CSV file</div>
+    </div>
+    <p class="hint">
+      One Scholar profile URL per row — first column is used; header rows are
+      auto-skipped. Example: <code>https://scholar.google.com/citations?user=YA43PbsAAAAJ</code>
+    </p>
+    <div style="margin-top:16px">
+      <button class="btn-primary" id="batch-btn" onclick="startBatchScrape()" disabled>
+        Fetch All
+      </button>
+    </div>
+
+    <div class="status-area" id="batch-status"></div>
+    <div id="batch-results"></div>
+  </div>
+</div>
+
+<script>
+// ── Tab switching ──────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.tab === name);
+  });
+  document.querySelectorAll('.panel').forEach(p => {
+    p.classList.toggle('active', p.id === `panel-${name}`);
+  });
+}
+
+// ── Shared helpers ─────────────────────────────────────────────────────────────
+function fmt(val) {
+  if (val === '' || val === null || val === undefined) return '—';
+  const n = Number(val);
+  return isNaN(n) ? String(val) : n.toLocaleString();
+}
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function showLoading(statusId, msg) {
+  document.getElementById(statusId).innerHTML = `
+    <div class="status-msg">
+      <div class="spinner"></div><span>${escHtml(msg)}</span>
+    </div>`;
+}
+function showError(statusId, msg) {
+  document.getElementById(statusId).innerHTML =
+    `<div class="error-box">${escHtml(msg)}</div>`;
+}
+function clearStatus(statusId) {
+  document.getElementById(statusId).innerHTML = '';
+}
+
+// ── Single Author ──────────────────────────────────────────────────────────────
+let authorPoll = null;
+
+async function startAuthorScrape() {
+  const input = document.getElementById('user-input').value.trim();
+  if (!input) return;
+  clearInterval(authorPoll);
+  document.getElementById('author-btn').disabled = true;
+  document.getElementById('author-results').innerHTML = '';
+  showLoading('author-status', 'Fetching from Google Scholar — this may take 15–30 seconds…');
+
+  let jobId;
+  try {
+    const res = await fetch('/api/scrape', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user: input }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Failed to start job');
+    jobId = data.job_id;
+  } catch (err) {
+    showError('author-status', err.message);
+    document.getElementById('author-btn').disabled = false;
+    return;
+  }
+
+  authorPoll = setInterval(async () => {
+    try {
+      const res = await fetch(`/api/jobs/${jobId}`);
+      const job = await res.json();
+      if (job.status === 'done') {
+        clearInterval(authorPoll);
+        document.getElementById('author-btn').disabled = false;
+        clearStatus('author-status');
+        renderAuthorResults(job, jobId);
+      } else if (job.status === 'error') {
+        clearInterval(authorPoll);
+        document.getElementById('author-btn').disabled = false;
+        showError('author-status', job.error);
+      }
+    } catch { /* network blip */ }
+  }, 2500);
+}
+
+function renderAuthorResults(job, jobId) {
+  const el = document.getElementById('author-results');
+  const summaryRows = job.summary.map(r => `
+    <tr><td>${escHtml(r.metric)}</td><td>${fmt(r.all_time)}</td><td>${fmt(r.since_5y)}</td></tr>
+  `).join('');
+  const perYearRows = job.per_year.map(r => `
+    <tr><td>${r.year}</td><td>${fmt(r.citations)}</td></tr>
+  `).join('');
+
+  el.innerHTML = `
+    <div class="results">
+      <div class="author-name">${escHtml(job.name)}</div>
+      ${job.affiliation ? `<div class="author-aff">${escHtml(job.affiliation)}</div>` : ''}
+      <div class="section-title">Citation Metrics</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Metric</th><th>All Time</th><th>Since ~5 Years</th></tr></thead>
+        <tbody>${summaryRows}</tbody>
+      </table></div>
+      ${perYearRows ? `
+        <div class="section-title">Citations Per Year</div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Year</th><th>Citations</th></tr></thead>
+          <tbody>${perYearRows}</tbody>
+        </table></div>` : ''}
+      <hr class="divider"/>
+      <div class="section-title">Export</div>
+      <div class="download-row">
+        <a href="/api/download/${jobId}/summary">
+          <button class="btn-outline">Download Summary CSV</button></a>
+        <a href="/api/download/${jobId}/per_year">
+          <button class="btn-outline">Download Per-Year CSV</button></a>
+      </div>
+    </div>`;
+}
+
+document.getElementById('user-input')
+  .addEventListener('keydown', e => { if (e.key === 'Enter') startAuthorScrape(); });
+
+
+// ── Shared progress/results renderer (used by both org and batch) ──────────────
+function _updateProgressUI(job, jobId, statusEl, resultsEl, btnId, stopPoll, downloadType) {
+  if (job.status === 'collecting') {
+    statusEl.innerHTML = `
+      <div class="status-msg">
+        <div class="spinner"></div>
+        <span>Collecting author list from institution page…</span>
+      </div>`;
+
+  } else if (job.status === 'processing') {
+    const p = job.progress || {};
+    const current = p.current ?? 0;
+    const total = p.total ?? 0;
+    const pct = total > 0 ? Math.round((current / total) * 100) : 0;
+    statusEl.innerHTML = `
+      <div class="status-msg" style="flex-direction:column;align-items:flex-start;gap:8px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="spinner"></div>
+          <span>Fetching author metrics… ${current} / ${total} authors</span>
+        </div>
+        <div class="progress-wrap" style="width:100%">
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" style="width:${pct}%"></div>
+          </div>
+        </div>
+      </div>`;
+    if (job.results && job.results.length > 0) {
+      renderOrgTable(job.results, jobId, resultsEl, true, downloadType);
+    }
+
+  } else if (job.status === 'done') {
+    stopPoll();
+    document.getElementById(btnId).disabled = false;
+    clearStatus(statusEl.id);
+    renderOrgTable(job.results || [], jobId, resultsEl, false, downloadType);
+
+  } else if (job.status === 'error') {
+    stopPoll();
+    document.getElementById(btnId).disabled = false;
+    showError(statusEl.id, job.error);
+  }
+}
+
+function renderOrgTable(results, jobId, container, partial, downloadType) {
+  const dtype = downloadType || 'org';
+  const rows = results.map(r => {
+    const nameCell = r.scholar_url
+      ? `<a class="link" href="${escHtml(r.scholar_url)}" target="_blank">${escHtml(r.name)}</a>`
+      : escHtml(r.name);
+    const errCell = r.error
+      ? `<span class="badge-error" title="${escHtml(r.error)}">error</span>` : '';
+    return `<tr>
+      <td>${nameCell} ${errCell}</td>
+      <td>${escHtml(r.affiliation)}</td>
+      <td>${fmt(r.citedby)}</td>
+      <td>${fmt(r.citedby5y)}</td>
+      <td>${fmt(r.hindex)}</td>
+      <td>${fmt(r.hindex5y)}</td>
+      <td>${fmt(r.i10index)}</td>
+      <td>${fmt(r.i10index5y)}</td>
+    </tr>`;
+  }).join('');
+
+  const downloadBtn = !partial ? `
+    <hr class="divider"/>
+    <div class="section-title">Export</div>
+    <div class="download-row">
+      <a href="/api/download/${jobId}/${dtype}">
+        <button class="btn-outline">Download All Authors CSV</button></a>
+    </div>` : '';
+
+  container.innerHTML = `
+    <div class="results">
+      ${partial
+        ? `<div class="section-title">Live Preview — ${results.length} authors so far</div>`
+        : `<div class="section-title">${results.length} Authors</div>`}
+      <div class="table-wrap"><table>
+        <thead><tr>
+          <th>Name</th><th>Affiliation</th>
+          <th>Citations</th><th>Cit. 5y</th>
+          <th>h-index</th><th>h-index 5y</th>
+          <th>i10-index</th><th>i10 5y</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+      ${downloadBtn}
+    </div>`;
+}
+
+// ── Institution ────────────────────────────────────────────────────────────────
+let orgPoll = null;
+
+async function startOrgScrape() {
+  const input = document.getElementById('org-input').value.trim();
+  if (!input) return;
+  clearInterval(orgPoll);
+  document.getElementById('org-btn').disabled = true;
+  document.getElementById('org-results').innerHTML = '';
+  showLoading('org-status', 'Collecting author list from Google Scholar…');
+
+  let jobId;
+  try {
+    const res = await fetch('/api/scrape-org', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ org: input }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Failed to start job');
+    jobId = data.job_id;
+  } catch (err) {
+    showError('org-status', err.message);
+    document.getElementById('org-btn').disabled = false;
+    return;
+  }
+
+  orgPoll = setInterval(async () => {
+    try {
+      const res = await fetch(`/api/jobs/${jobId}`);
+      const job = await res.json();
+      _updateProgressUI(job, jobId,
+        document.getElementById('org-status'),
+        document.getElementById('org-results'),
+        'org-btn', () => clearInterval(orgPoll), 'org');
+    } catch { /* blip */ }
+  }, 3000);
+}
+
+document.getElementById('org-input')
+  .addEventListener('keydown', e => { if (e.key === 'Enter') startOrgScrape(); });
+
+// ── Batch / CSV ────────────────────────────────────────────────────────────────
+let batchPoll = null;
+let batchFile = null;
+
+function onBatchFileSelect(input) {
+  batchFile = input.files[0] || null;
+  _updateBatchFileUI();
+}
+
+function onBatchDrop(event) {
+  event.preventDefault();
+  document.getElementById('batch-drop').classList.remove('has-file');
+  const file = event.dataTransfer.files[0];
+  if (file && file.name.endsWith('.csv')) {
+    batchFile = file;
+    _updateBatchFileUI();
+  }
+}
+
+function _updateBatchFileUI() {
+  const drop = document.getElementById('batch-drop');
+  const label = document.getElementById('batch-file-label');
+  const btn = document.getElementById('batch-btn');
+  if (batchFile) {
+    drop.classList.add('has-file');
+    label.textContent = `${batchFile.name}  (${(batchFile.size / 1024).toFixed(1)} KB)`;
+    btn.disabled = false;
+  } else {
+    drop.classList.remove('has-file');
+    label.textContent = 'Click to choose or drag & drop a CSV file';
+    btn.disabled = true;
+  }
+}
+
+async function startBatchScrape() {
+  if (!batchFile) return;
+  clearInterval(batchPoll);
+  document.getElementById('batch-btn').disabled = true;
+  document.getElementById('batch-results').innerHTML = '';
+  showLoading('batch-status', 'Uploading CSV and starting batch scrape…');
+
+  const formData = new FormData();
+  formData.append('file', batchFile);
+
+  let jobId;
+  try {
+    const res = await fetch('/api/scrape-batch', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Failed to start batch job');
+    jobId = data.job_id;
+    showLoading('batch-status', `Fetching metrics for ${data.count} authors — this may take a while…`);
+  } catch (err) {
+    showError('batch-status', err.message);
+    document.getElementById('batch-btn').disabled = false;
+    return;
+  }
+
+  batchPoll = setInterval(async () => {
+    try {
+      const res = await fetch(`/api/jobs/${jobId}`);
+      const job = await res.json();
+      _updateProgressUI(job, jobId,
+        document.getElementById('batch-status'),
+        document.getElementById('batch-results'),
+        'batch-btn', () => clearInterval(batchPoll), 'batch');
+    } catch { /* blip */ }
+  }, 3000);
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# Env / secrets
+.env
+.env.*
+
+# Sample output files (not needed in repo)
+*.csv
+
+# Claude Code local settings
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
