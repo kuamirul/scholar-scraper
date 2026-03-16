@@ -315,6 +315,32 @@ def fetch_authors_batch(
     return results
 
 
+def parse_batch_csv(text: str) -> list[str]:
+    """
+    Extract Scholar user IDs from the first column of CSV text.
+
+    Handles:
+    - BOM prefix (from Excel exports)
+    - Quoted fields ("url","name,extra" → url)
+    - Empty lines
+    - URL-style headers with wrong params (raises ValueError → skipped)
+
+    Note: plain-text headers like "profile_url" are treated as raw IDs and
+    included — they will fail at the scholarly fetch stage with an error row.
+    """
+    user_ids: list[str] = []
+    text = text.lstrip("\ufeff")  # strip BOM if not already removed by utf-8-sig
+    for line in text.splitlines():
+        raw = line.split(",")[0].strip().strip('"').strip("'")
+        if not raw:
+            continue
+        try:
+            user_ids.append(extract_user_id(raw))
+        except ValueError:
+            pass  # e.g. https://... URL missing user= param
+    return user_ids
+
+
 ORG_CSV_FIELDS = [
     "name", "affiliation", "scholar_id", "scholar_url",
     "citedby", "citedby5y", "hindex", "hindex5y",

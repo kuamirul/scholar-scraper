@@ -13,6 +13,14 @@ pip install -r requirements.txt
 uvicorn main:app --reload
 # → http://localhost:8000
 ```
+
+## Running tests
+```bash
+pip install -r requirements-dev.txt
+pytest test_scraper.py -v
+```
+Tests cover pure functions only (no network): `extract_user_id`, `extract_org_id`,
+`format_summary`, `format_per_year`, `parse_batch_csv`.
 No proxy needed locally (residential IP). On cloud servers set `PROXY_MODE=free`.
 
 ## Key files

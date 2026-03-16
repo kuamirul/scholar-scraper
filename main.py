@@ -18,7 +18,7 @@ from pydantic import BaseModel
 from scraper import (
     extract_user_id, fetch_author, format_summary, format_per_year,
     extract_org_id, fetch_org_authors, fetch_authors_batch, ORG_CSV_FIELDS,
-    init_proxy,
+    parse_batch_csv, init_proxy,
 )
 
 app = FastAPI(title="Scholar Scraper")
@@ -247,16 +247,7 @@ async def start_scrape_batch(file: UploadFile = File(...)):
     except UnicodeDecodeError:
         text = content.decode("latin-1")
 
-    # Extract first column from every non-blank line; skip headers/invalid entries
-    user_ids: list[str] = []
-    for line in text.splitlines():
-        raw = line.split(",")[0].strip().strip('"').strip("'")
-        if not raw:
-            continue
-        try:
-            user_ids.append(extract_user_id(raw))
-        except ValueError:
-            pass  # skip header rows and non-URL strings
+    user_ids = parse_batch_csv(text)
 
     if not user_ids:
         raise HTTPException(
